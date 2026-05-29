@@ -17,11 +17,16 @@ case "$1" in
     echo "Work apps launched!"
     ;;
   close)
-    for app in "${apps[@]}"; do
-      echo "Closing $app..."
-      osascript -e "quit app \"$app\""
-    done
-    echo "Work apps closed!"
+    read -p "Are you sure you want to close work apps? (freee で退勤しましたか?) (y/n): " confirm
+    if [[ $confirm == [yY] ]]; then
+      for app in "${apps[@]}"; do
+        echo "Closing $app..."
+        osascript -e "quit app \"$app\""
+      done
+      echo "Work apps closed!"
+    else
+      echo "Aborted."
+    fi
     ;;
   *)
     usage
