@@ -1,7 +1,12 @@
 #!/bin/bash
-# Creates a new todo task in your Notion database.
+# Creates a new task in your Notion database interactively.
 # Requires NOTION_TODO_DATABASE_ID env var to be set.
 # To use from anywhere: ln -s /Users/muga/repos/scripts/shell/notion_todo.sh ~/.local/bin/notion_todo
+#
+# Usage: notion_todo [task_name]
+#   - If task_name is omitted, you'll be prompted for it.
+#   - All other fields are prompted interactively with defaults.
+#   - Leave "Start date" blank to skip the Planned time property.
 
 set -e
 
@@ -14,24 +19,62 @@ done
 
 : "${NOTION_TODO_DATABASE_ID:?NOTION_TODO_DATABASE_ID is not set}"
 
-usage() {
-  echo "Usage: $0 <task_name> [due_date (YYYY-MM-DD)]"
-  echo "Example: $0 \"Fix login bug\" 2026-06-20"
-  exit 1
-}
+TODAY=$(date +%Y-%m-%d)
+NOW_TIME=$(date +%H:%M)
 
-[[ -z "$1" ]] && usage
+TASK_NAME="${1:-}"
+if [[ -z "$TASK_NAME" ]]; then
+  echo "Create a Notion task. Press Enter to accept the value in [brackets]."
+  read -r -p "Task name (required): " TASK_NAME
+fi
+[[ -z "$TASK_NAME" ]] && { echo "Error: task name is required." >&2; exit 1; }
 
-TASK_NAME="$1"
-DUE_DATE="${2:-$(date +%Y-%m-%d)}"
+read -r -p "Due date [$TODAY]: " DUE_DATE
+DUE_DATE="${DUE_DATE:-$TODAY}"
+
+read -r -p "Start date [skip]: " START_DATE
+
+START_ISO=""
+END_ISO=""
+DURATION=""
+
+if [[ -n "$START_DATE" ]]; then
+  read -r -p "Start time [$NOW_TIME]: " START_TIME
+  START_TIME="${START_TIME:-$NOW_TIME}"
+
+  read -r -p "Duration in min [30]: " DURATION
+  DURATION="${DURATION:-30}"
+  [[ "$DURATION" =~ ^[0-9]+$ ]] || { echo "Error: duration must be an integer." >&2; exit 1; }
+
+  if ! START_ISO=$(date -j -f "%Y-%m-%d %H:%M" "$START_DATE $START_TIME" "+%Y-%m-%dT%H:%M:%S%z" 2>/dev/null); then
+    echo "Error: could not parse '$START_DATE $START_TIME'." >&2
+    exit 1
+  fi
+  END_ISO=$(date -j -v+"${DURATION}"M -f "%Y-%m-%d %H:%M" "$START_DATE $START_TIME" "+%Y-%m-%dT%H:%M:%S%z")
+else
+  read -r -p "Duration in min [skip]: " DURATION
+  if [[ -n "$DURATION" ]]; then
+    [[ "$DURATION" =~ ^[0-9]+$ ]] || { echo "Error: duration must be an integer." >&2; exit 1; }
+  fi
+fi
 
 echo "Creating task: $TASK_NAME..."
 
-properties=$(jq -n --arg name "$TASK_NAME" --arg date "$DUE_DATE" '{
-  "Task name": { "title": [{ "text": { "content": $name } }] },
-  "Status": { "status": { "name": "Not started" } },
-  "Due date": { "date": { "start": $date } }
-}')
+properties=$(jq -n \
+  --arg name "$TASK_NAME" \
+  --arg due "$DUE_DATE" \
+  --arg duration "$DURATION" \
+  --arg start "$START_ISO" \
+  --arg end "$END_ISO" \
+  '
+  {
+    "Task name": { "title": [{ "text": { "content": $name } }] },
+    "Status":    { "status": { "name": "Not started" } },
+    "Due date":  { "date": { "start": $due } }
+  }
+  + (if $duration != "" then { "Duration (min)": { "number": ($duration | tonumber) } } else {} end)
+  + (if $start    != "" then { "Planned time":   { "date":   { "start": $start, "end": $end } } } else {} end)
+  ')
 
 parent=$(jq -n --arg db "$NOTION_TODO_DATABASE_ID" '{"database_id": $db}')
 
