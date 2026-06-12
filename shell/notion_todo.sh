@@ -23,22 +23,15 @@ usage() {
 [[ -z "$1" ]] && usage
 
 TASK_NAME="$1"
-DUE_DATE="$2"
+DUE_DATE="${2:-$(date +%Y-%m-%d)}"
 
 echo "Creating task: $TASK_NAME..."
 
-if [[ -n "$DUE_DATE" ]]; then
-  properties=$(jq -n --arg name "$TASK_NAME" --arg date "$DUE_DATE" '{
-    "Task name": { "title": [{ "text": { "content": $name } }] },
-    "Status": { "status": { "name": "Not started" } },
-    "Due date": { "date": { "start": $date } }
-  }')
-else
-  properties=$(jq -n --arg name "$TASK_NAME" '{
-    "Task name": { "title": [{ "text": { "content": $name } }] },
-    "Status": { "status": { "name": "Not started" } }
-  }')
-fi
+properties=$(jq -n --arg name "$TASK_NAME" --arg date "$DUE_DATE" '{
+  "Task name": { "title": [{ "text": { "content": $name } }] },
+  "Status": { "status": { "name": "Not started" } },
+  "Due date": { "date": { "start": $date } }
+}')
 
 parent=$(jq -n --arg db "$NOTION_TODO_DATABASE_ID" '{"database_id": $db}')
 
