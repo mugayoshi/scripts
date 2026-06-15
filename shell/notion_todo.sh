@@ -7,6 +7,14 @@
 #   - If task_name is omitted, you'll be prompted for it.
 #   - All other fields are prompted interactively with defaults.
 #   - Leave "Start date" blank to use today's date for Planned start.
+#
+# To inspect database properties when the schema changes:
+#   1. Open the database in Notion and copy the link.
+#   2. Extract the database ID: the hex string after the org name or "/p/" in the URL. (e.g. https://app.notion.com/p/<organization>/<id>?source=copy_link, or https://app.notion.com/p/<id>?v=50db124da025433280412ab50dca7826&source=copy_link)
+#   3. Resolve it to a datasource ID:
+#        ntn datasources resolve <database_id>
+#   4. Query one task to see the full property schema:
+#        ntn datasources query <datasource_id> --json --limit 1
 
 set -e
 
