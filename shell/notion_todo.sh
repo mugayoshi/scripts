@@ -50,6 +50,8 @@ read -r -p "Duration in min [30]: " DURATION
 DURATION="${DURATION:-30}"
 [[ "$DURATION" =~ ^[0-9]+$ ]] || { echo "Error: duration must be an integer." >&2; exit 1; }
 
+read -r -p "Details (optional): " DETAILS
+
 START_ISO=""
 if ! START_ISO=$(date -j -f "%Y-%m-%d %H:%M" "$START_DATE $START_TIME" "+%Y-%m-%dT%H:%M:%S%z" 2>/dev/null); then
   echo "Error: could not parse '$START_DATE $START_TIME'." >&2
@@ -79,11 +81,23 @@ response=$(PAGER=cat ntn api --method POST v1/pages \
   parent:="$parent" \
   properties:="$properties")
 
+PAGE_ID=$(echo "$response" | jq -r '.id')
 PAGE_URL=$(echo "$response" | jq -r '.url')
 if [[ -z "$PAGE_URL" || "$PAGE_URL" == "null" ]]; then
   echo "Error: failed to create page." >&2
   echo "$response" >&2
   exit 1
+fi
+
+if [[ -n "$DETAILS" ]]; then
+  PAGER=cat ntn api -X PATCH "v1/blocks/$PAGE_ID/children" \
+    -d "$(jq -n --arg text "$DETAILS" '{
+      "children": [{
+        "object": "block",
+        "type": "paragraph",
+        "paragraph": {"rich_text": [{"type": "text", "text": {"content": $text}}]}
+      }]
+    }')" >/dev/null
 fi
 
 echo "Done! Task created: $PAGE_URL"
