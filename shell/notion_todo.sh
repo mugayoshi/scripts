@@ -6,7 +6,7 @@
 # Usage: notion_todo [task_name]
 #   - If task_name is omitted, you'll be prompted for it.
 #   - All other fields are prompted interactively with defaults.
-#   - Leave "Start date" blank to skip the Planned time property.
+#   - Leave "Start date" blank to use today's date for Planned start.
 
 set -e
 
@@ -32,30 +32,20 @@ fi
 read -r -p "Due date [$TODAY]: " DUE_DATE
 DUE_DATE="${DUE_DATE:-$TODAY}"
 
-read -r -p "Start date [skip]: " START_DATE
+read -r -p "Start date [$TODAY]: " START_DATE
+START_DATE="${START_DATE:-$TODAY}"
+
+read -r -p "Start time [$NOW_TIME]: " START_TIME
+START_TIME="${START_TIME:-$NOW_TIME}"
+
+read -r -p "Duration in min [30]: " DURATION
+DURATION="${DURATION:-30}"
+[[ "$DURATION" =~ ^[0-9]+$ ]] || { echo "Error: duration must be an integer." >&2; exit 1; }
 
 START_ISO=""
-END_ISO=""
-DURATION=""
-
-if [[ -n "$START_DATE" ]]; then
-  read -r -p "Start time [$NOW_TIME]: " START_TIME
-  START_TIME="${START_TIME:-$NOW_TIME}"
-
-  read -r -p "Duration in min [30]: " DURATION
-  DURATION="${DURATION:-30}"
-  [[ "$DURATION" =~ ^[0-9]+$ ]] || { echo "Error: duration must be an integer." >&2; exit 1; }
-
-  if ! START_ISO=$(date -j -f "%Y-%m-%d %H:%M" "$START_DATE $START_TIME" "+%Y-%m-%dT%H:%M:%S%z" 2>/dev/null); then
-    echo "Error: could not parse '$START_DATE $START_TIME'." >&2
-    exit 1
-  fi
-  END_ISO=$(date -j -v+"${DURATION}"M -f "%Y-%m-%d %H:%M" "$START_DATE $START_TIME" "+%Y-%m-%dT%H:%M:%S%z")
-else
-  read -r -p "Duration in min [skip]: " DURATION
-  if [[ -n "$DURATION" ]]; then
-    [[ "$DURATION" =~ ^[0-9]+$ ]] || { echo "Error: duration must be an integer." >&2; exit 1; }
-  fi
+if ! START_ISO=$(date -j -f "%Y-%m-%d %H:%M" "$START_DATE $START_TIME" "+%Y-%m-%dT%H:%M:%S%z" 2>/dev/null); then
+  echo "Error: could not parse '$START_DATE $START_TIME'." >&2
+  exit 1
 fi
 
 echo "Creating task: $TASK_NAME..."
@@ -65,7 +55,6 @@ properties=$(jq -n \
   --arg due "$DUE_DATE" \
   --arg duration "$DURATION" \
   --arg start "$START_ISO" \
-  --arg end "$END_ISO" \
   '
   {
     "Task name": { "title": [{ "text": { "content": $name } }] },
@@ -73,7 +62,7 @@ properties=$(jq -n \
     "Due date":  { "date": { "start": $due } }
   }
   + (if $duration != "" then { "Duration (min)": { "number": ($duration | tonumber) } } else {} end)
-  + (if $start    != "" then { "Planned time":   { "date":   { "start": $start, "end": $end } } } else {} end)
+  + (if $start    != "" then { "Planned start":  { "date":   { "start": $start } } } else {} end)
   ')
 
 parent=$(jq -n --arg db "$NOTION_TODO_DATABASE_ID" '{"database_id": $db}')
