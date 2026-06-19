@@ -27,6 +27,10 @@ case "$1" in
         osascript -e "quit app \"$app\""
       done
       echo "Work apps closed!"
+      read -p "Kill Claude Code sessions? (y/n): " kill_claude
+      if [[ $kill_claude == [yY] ]]; then
+        pkill -f "claude" && echo "Claude Code sessions killed." || echo "No Claude Code sessions found."
+      fi
     else
       echo "Aborted."
     fi
