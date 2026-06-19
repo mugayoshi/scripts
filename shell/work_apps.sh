@@ -12,6 +12,9 @@ case "$1" in
   open)
     for app in "${apps[@]}"; do
       echo "Launching $app..."
+      if [[ "$app" == "Slack" ]]; then
+        echo "Reminder: freee で出勤しましたか?"
+      fi
       open -a "$app"
     done
     echo "Work apps launched!"
