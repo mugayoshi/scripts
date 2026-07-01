@@ -31,6 +31,11 @@ case "$1" in
       if [[ $kill_claude == [yY] ]]; then
         pkill -f "claude" && echo "Claude Code sessions killed." || echo "No Claude Code sessions found."
       fi
+      running_containers=$(docker ps -q 2>/dev/null)
+      if [[ -n "$running_containers" ]]; then
+        echo "Warning: Docker containers are still running:"
+        docker ps --format "  {{.Names}} ({{.Image}})"
+      fi
     else
       echo "Aborted."
     fi
