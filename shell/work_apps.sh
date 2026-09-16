@@ -20,8 +20,16 @@ case "$1" in
     echo "Work apps launched!"
     ;;
   close)
-    read -p "Are you sure you want to close work apps? (freee で退勤しましたか?) (y/n): " confirm
+    read -p "Are you sure you want to close work apps? (y/n): " confirm
     if [[ $confirm == [yY] ]]; then
+      read -p "freee で退勤しましたか? (y/n): " freee_confirm
+      if [[ $freee_confirm != [yY] ]]; then
+        echo "Please clock out on freee."
+      fi
+      read -p "Did you disconnect the VPN? (y/n): " vpn_confirm
+      if [[ $vpn_confirm != [yY] ]]; then
+        echo "Please disconnect the VPN before closing work apps."
+      fi
       for app in "${apps[@]}"; do
         echo "Closing $app..."
         osascript -e "quit app \"$app\""
