@@ -44,6 +44,18 @@ case "$1" in
         echo "Warning: Docker containers are still running:"
         docker ps --format "  {{.Names}} ({{.Image}})"
       fi
+      # Port forwards (ssh tunnels incl. ones defined in ~/.ssh/config, kubectl, AWS SSM)
+      # show up as these processes listening on a local TCP port.
+      port_forwards=$(lsof -nP +c 0 -iTCP -sTCP:LISTEN 2>/dev/null \
+        | awk '$1 ~ /^(ssh|autossh|kubectl|session-manager-plugin)$/ {
+            port = $9; sub(/.*:/, "", port)   # drop the IPv4/IPv6 address, keep the port
+            print "  " $1 " (pid " $2 ") port " port
+          }' \
+        | sort -u)
+      if [[ -n "$port_forwards" ]]; then
+        echo "Warning: Port forwarding is still running:"
+        echo "$port_forwards"
+      fi
     else
       echo "Aborted."
     fi
