@@ -46,12 +46,18 @@ case "$1" in
       fi
       # Port forwards (ssh tunnels incl. ones defined in ~/.ssh/config, kubectl, AWS SSM)
       # show up as these processes listening on a local TCP port.
+      # Colima/Lima forwards container ports through its own ssh mux process
+      # (~/.colima/_lima/...); skip it, since the Docker warning above covers containers.
       port_forwards=$(lsof -nP +c 0 -iTCP -sTCP:LISTEN 2>/dev/null \
         | awk '$1 ~ /^(ssh|autossh|kubectl|session-manager-plugin)$/ {
             port = $9; sub(/.*:/, "", port)   # drop the IPv4/IPv6 address, keep the port
-            print "  " $1 " (pid " $2 ") port " port
+            print $2, $1, port
           }' \
-        | sort -u)
+        | sort -u \
+        | while read -r pid cmd port; do
+            ps -o command= -p "$pid" | grep -q '_lima/' && continue
+            echo "  $cmd (pid $pid) port $port"
+          done)
       if [[ -n "$port_forwards" ]]; then
         echo "Warning: Port forwarding is still running:"
         echo "$port_forwards"
